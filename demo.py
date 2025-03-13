@@ -29,8 +29,8 @@ parser.add_argument('--rgb-path')
 parser.add_argument('--depth-path')
 
 # paras from hggd (some are useless but not deleted for convinence)
-parser.add_argument('--input-h', type=int)
-parser.add_argument('--input-w', type=int)
+parser.add_argument('--input-h', type=int, default=360)
+parser.add_argument('--input-w', type=int, default=640)
 parser.add_argument('--sigma', type=int, default=10)
 parser.add_argument('--ratio', type=int, default=8)
 parser.add_argument('--anchor-k', type=int, default=6)
@@ -39,37 +39,24 @@ parser.add_argument('--anchor-z', type=float, default=20.0)
 parser.add_argument('--grid-size', type=int, default=12)
 
 # pc
-parser.add_argument('--all-points-num', type=int)
+parser.add_argument('--all-points-num', type=int, default=25600)
 parser.add_argument('--center-num', type=int)
 parser.add_argument('--group-num', type=int)
 
 # patch
-parser.add_argument('--patch-only',
-                    action='store_true',
-                    help='wheter use only local patches to train')
 parser.add_argument('--patch-size',
                     type=int,
                     default=64,
                     help='local patch grid size')
-parser.add_argument('--adaptive-patch',
-                    action='store_true',
-                    help='whether to use adaptive local patch grid size')
-parser.add_argument('--norm-space',
-                    action='store_true',
-                    help='whether to use normalized space to get grasp width')
 parser.add_argument('--alpha',
                     type=float,
                     default=0.02,
                     help='grasp center crop range')
 
 # net
-parser.add_argument('--model-type',
-                    type=str,
-                    default='small',
-                    help='Network backbone size')
 parser.add_argument('--embed-dim', type=int)
 parser.add_argument('--anchor-w', type=float, default=60.0)
-parser.add_argument('--anchor-num', type=int)
+parser.add_argument('--anchor-num', type=int, default=7)
 
 # grasp detection
 parser.add_argument('--heatmap-thres', type=float, default=0.01)
@@ -263,20 +250,16 @@ def inference(view_points,
         centers_t = ratio * torch.from_numpy(rect_gg.centers).cuda()  # N, 2
         # calculate grid pos in original image
         grid_idxs = grid_idxs[None].expand(len(centers_t), -1, -1, -1)
-        if args.adaptive_patch:
-            # adaptive radius
-            intrinsics = get_camera_intrinsic()
-            fx = intrinsics[0, 0]
-            radius = torch.full((len(centers_t), ), 0.10, device='cuda')
-            # radius = 0.06 * torch.rand(len(centers_t), device='cuda') + 0.06
-            radius *= 2 * fx / valid_local_centers[0][:, 2]  # in ori image
-            # fit to different grippers
-            if args.norm_space:
-                radius *= args.anchor_w / 60.0
-            grid_idxs = grid_idxs * radius[:, None, None,
-                                           None]  # B, S, S, 2 * B, 1, 1, 1
-        else:
-            grid_idxs = grid_idxs * args.patch_size * ratio
+        # adaptive radius
+        intrinsics = get_camera_intrinsic()
+        fx = intrinsics[0, 0]
+        radius = torch.full((len(centers_t), ), 0.10, device='cuda')
+        # radius = 0.06 * torch.rand(len(centers_t), device='cuda') + 0.06
+        radius *= 2 * fx / valid_local_centers[0][:, 2]  # in ori image
+        # fit to different grippers
+        radius *= args.anchor_w / 60.0
+        grid_idxs = grid_idxs * radius[:, None, None,
+                                       None]  # B, S, S, 2 * B, 1, 1, 1
         # move to coresponding centers
         grid_idxs = grid_idxs + torch.flip(centers_t[:, None, None],
                                            [-1])  # B, S, S, 2 + B, 1, 1, 2
@@ -291,14 +274,13 @@ def inference(view_points,
         local_patches = local_patches.permute(0, 3, 2, 1).contiguous()
 
         # norm space
-        if args.norm_space and local_patches is not None:
-            # move to (0, 0, 0)
-            mask = (local_patches[..., -1:] > 0)
-            patch_centers = valid_local_centers[0][:, None, None]
-            patch_centers = patch_centers.expand(-1, args.patch_size,
-                                                 args.patch_size, -1)
-            local_patches[..., 3:] -= mask * patch_centers
-            local_patches[..., 3:] /= args.anchor_w / 1e3
+        # move to (0, 0, 0)
+        mask = (local_patches[..., -1:] > 0)
+        patch_centers = valid_local_centers[0][:, None, None]
+        patch_centers = patch_centers.expand(-1, args.patch_size,
+                                             args.patch_size, -1)
+        local_patches[..., 3:] -= mask * patch_centers
+        local_patches[..., 3:] /= args.anchor_w / 1e3
 
         # get gamma and beta classification result
         _, pred, offset, theta_cls, theta_offset, width_reg = localnet(
