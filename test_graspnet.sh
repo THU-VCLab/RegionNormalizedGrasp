@@ -1,0 +1,14 @@
+CUDA_VISIBLE_DEVICES=0 python test_graspnet.py \
+--center-num 48 \
+--anchor-w 60 \
+--anchor-num 7 \
+--patch-size 64 \
+--scene-l 100 \
+--scene-r 130 \
+--embed-dim 256 \
+--num-workers 8 \
+--dataset-path '/data/6dto2drefine_realsense' \
+--scene-path '/ssd/graspnet' \
+--checkpoint './checkpoints/realsense' \
+--dump-dir 'pred_grasps/' \
+--description 'test_seen_realsense'

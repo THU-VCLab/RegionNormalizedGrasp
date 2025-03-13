@@ -30,9 +30,6 @@ class GraspnetAnchorDataset(GraspDataset):
     def __init__(self,
                  labelroot,
                  graspnetroot,
-                 fullpc_path,
-                 gtdetph_path,
-                 local_data_path,
                  sceneIds,
                  ratio,
                  anchor_k,
@@ -47,16 +44,12 @@ class GraspnetAnchorDataset(GraspDataset):
                  include_rgb=True,
                  include_depth=True,
                  noise=0,
-                 aug=False,
                  view_num=256):
         logging.info('Using Graspnet dataset')
         # basic attributes
         self.trainning = True
         self.labelroot = labelroot
         self.graspnetroot = graspnetroot
-        self.fullpc_path = fullpc_path
-        self.gtdepth_path = gtdetph_path
-        self.local_data_path = local_data_path
         self.sceneIds = sceneIds
         self.random_rotate = random_rotate
         self.random_zoom = random_zoom
@@ -88,12 +81,6 @@ class GraspnetAnchorDataset(GraspDataset):
         self.frameid = []
         self.output_size = output_size
         self.noise = noise
-        self.aug = None
-        if aug:
-            self.aug = Compose(
-                [PILToTensor(),
-                 ColorJitter(0.5, 0.5, 0.5, 0.3),
-                 ToPILImage()])
 
         for x in tqdm(self.sceneIds_zfill, desc='Loading data path...'):
             self.cameraposepath.append(
@@ -144,27 +131,9 @@ class GraspnetPointDataset(GraspnetAnchorDataset):
         rgb = self.cur_rgb.astype(np.float32) / 255.0
         depth = self.cur_depth.astype(np.float32)
 
-        cur_scene = self.sceneIds[0] + index // self.viewnum
-        cur_ann = index % self.viewnum
-        # get gt_pcs
-        camera_pose = self.get_camera_pose(index)
-        fullpc = np.load(
-            os.path.join(self.fullpc_path, f'pc_{cur_scene}_world.npy'))
-        fullpc = np.concatenate([fullpc, np.ones((fullpc.shape[0], 1))], 1)
-        fullpc = (np.linalg.inv(camera_pose) @ fullpc.T).T
-        idxs = fast_sample(fullpc.shape[0], self.all_points_num)
-        fullpc = fullpc[idxs, :3]
-
-        # get full_depth in camera frame
-        gt_depth = cv2.imread(
-            os.path.join(self.gtdepth_path,
-                         f'scene_{cur_scene}/depth_{cur_ann}.png'),
-            cv2.IMREAD_UNCHANGED)
-        gt_depth = np.array(gt_depth, np.float32).T
-
         # get grasp path
         grasp_path = self.grasppath[index]
-        return anchor_data, rgb, depth, grasp_path, gt_depth, fullpc
+        return anchor_data, rgb, depth, grasp_path
 
 
 class GraspnetLocalDataset(GraspnetAnchorDataset):
@@ -182,23 +151,9 @@ class GraspnetLocalDataset(GraspnetAnchorDataset):
                 self.localdatapath.append(
                     os.path.join(self.local_data_path, x,
                                  str(img_num) + '.npz'))
-                # self.localdatapath.append(
-                #     os.path.join('/data1/robotics/local_data_randomwd_gth', x,
-                #                  str(img_num) + '.npz'))
-                # self.collisionpath.append(
-                #     os.path.join(self.local_data_path, 'collision_labels', x,
-                #                  f'{img_num}_collision_label.npz'))
 
     def __getitem__(self, index):
-
-        local_path = self.localdatapath[index]
-        # collision_path = self.collisionpath[index]
-
-        # anchor_data = super().__getitem__(index)
-        # color_img = self.cur_rgb.astype(np.float32) / 255.0
-        # depth_img = self.cur_depth.astype(np.float32)
-        # grasp_path = self.grasppath[index]
-        return local_path  #, anchor_data, color_img, depth_img, grasp_path
+        return self.localdatapath[index]
 
 
 class PartGraspDataset():
