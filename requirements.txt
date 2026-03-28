@@ -1,0 +1,17 @@
+cupoch
+e2cnn
+einops
+graspnetAPI
+matplotlib
+numba
+numpy==1.23
+open3d==0.17.0
+opencv-python
+# pytorch3d # pip install --no-index --no-cache-dir pytorch3d -f https://dl.fbaipublicfiles.com/pytorch3d/packaging/wheels/py38_cu113_pyt1110/download.html
+scikit-image
+tensorboardX
+thop
+timm
+torchsummary
+tqdm
+trimesh==3.6.20

@@ -7,8 +7,8 @@ CUDA_VISIBLE_DEVICES=0 python test_graspnet.py \
 --scene-r 130 \
 --embed-dim 256 \
 --num-workers 8 \
---dataset-path '/data/6dto2drefine_realsense' \
+--dataset-path '/data/6dto2drefine_kinect' \
 --scene-path '/ssd/graspnet' \
---checkpoint './checkpoints/realsense' \
+--checkpoint './checkpoints/kinect' \
 --dump-dir 'pred_grasps/' \
---description 'test_seen_realsense'
+--description 'test_seen_kinect'
